@@ -8,9 +8,13 @@ const Review = require("../models/Review");
 
 connectDB();
 
-const rawCsvPath = path.resolve(__dirname, "../../../mongodb.csv");
-const cleanedCsvPath = path.resolve(__dirname, "../../../mongodb.cleaned.csv");
-const csvPath = fs.existsSync(cleanedCsvPath) ? cleanedCsvPath : rawCsvPath;
+
+const csvDir = process.env.CSV_DIR
+  ? path.resolve(process.env.CSV_DIR)
+  : path.resolve(__dirname, "../../../");
+
+
+const csvPath = path.join(csvDir, "mongodb.cleaned.csv");
 
 const toNumber = (value, fallback = 0) => {
   const n = Number(value);
@@ -63,6 +67,12 @@ const parseReviewsField = (value) => {
 };
 
 const importAllMovies = async () => {
+  if (!fs.existsSync(csvPath)) {
+    throw new Error(
+      `No se encontró el CSV en ${csvPath}. Revisá CSV_DIR o el volumen montado.`,
+    );
+  }
+
   const fileContent = fs.readFileSync(csvPath, "utf8");
 
   const rows = parse(fileContent, {
@@ -72,6 +82,16 @@ const importAllMovies = async () => {
     relax_column_count: true,
     bom: true,
   });
+
+
+  const existingReviews = await Review.estimatedDocumentCount();
+  const skipReviews = existingReviews > 0;
+
+  if (skipReviews) {
+    console.log(
+      `Ya existen ${existingReviews} reviews en la base. Se omite la carga de reviews (solo se actualizan/insertan películas).`,
+    );
+  }
 
   let imported = 0;
   let skipped = 0;
@@ -91,6 +111,7 @@ const importAllMovies = async () => {
         category: parseArrayField(row.categories),
         description: "",
         posterUrl: "",
+        imdbId: String(row.imdb_tconst || "").trim(),
         actors: parseArrayField(row.actors),
         directors: parseArrayField(row.directors),
         writers: parseArrayField(row.writers),
@@ -108,22 +129,24 @@ const importAllMovies = async () => {
         { upsert: true, new: true },
       );
 
-      const rawReviews = parseReviewsField(row.reviews);
+      if (!skipReviews) {
+        const rawReviews = parseReviewsField(row.reviews);
 
-      for (const review of rawReviews) {
-        if (!review || !review.text) continue;
+        for (const review of rawReviews) {
+          if (!review || !review.text) continue;
 
-        const text = String(review.text).trim().slice(0, 10000);
-        const rating = toNumber(review.rating, 0);
+          const text = String(review.text).trim().slice(0, 10000);
+          const rating = toNumber(review.rating, 0);
 
-        if (!text || rating < 1 || rating > 5) continue;
+          if (!text || rating < 1 || rating > 5) continue;
 
-        await Review.create({
-          movieId: movie._id,
-          userName: "Usuario importado",
-          rating,
-          reviewText: text,
-        });
+          await Review.create({
+            movieId: movie._id,
+            userName: "Usuario importado",
+            rating,
+            reviewText: text,
+          });
+        }
       }
 
       await Movie.findByIdAndUpdate(movie._id, {

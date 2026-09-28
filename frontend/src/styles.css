@@ -90,6 +90,49 @@ nav button.active {
   border: 2px solid #261a2d;
   transform: rotate(2deg);
 }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.watchlist-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  color: #f8f3d4;
+  background: #261a2d;
+  border: 2px solid #261a2d;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.watchlist-button span:first-child {
+  color: #ff5c8a;
+}
+.watchlist-button:hover,
+.watchlist-button.active {
+  background: #f8f3d4;
+  color: #261a2d;
+  box-shadow: 3px 3px 0 #261a2d;
+}
+.watchlist-count {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  color: #261a2d;
+  background: #f9f871;
+  border: 2px solid #261a2d;
+  border-radius: 999px;
+  font:
+    0.68rem "DM Mono",
+    monospace;
+}
+.watchlist-count-hidden {
+  visibility: hidden;
+}
 .main-content {
   width: min(1180px, 90vw);
   margin: auto;
@@ -375,6 +418,46 @@ textarea {
     sans-serif;
   letter-spacing: -0.06em;
 }
+.watchlist-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-shrink: 0;
+  min-width: 230px;
+  margin-top: 18px;
+  padding: 10px 14px;
+  color: #261a2d;
+  background: #f8f3d4;
+  border: 3px solid #261a2d;
+  box-shadow: 4px 4px 0 #261a2d;
+  font-weight: 700;
+  font-size: 0.85rem;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.watchlist-toggle span {
+  color: #ff5c8a;
+  font-size: 1.1rem;
+}
+.watchlist-toggle:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 #261a2d;
+}
+.watchlist-toggle.active {
+  color: #f8f3d4;
+  background: #d33f6a;
+}
+.watchlist-toggle.active span {
+  color: #f9f871;
+}
+.watchlist-empty {
+  padding: 30px;
+  text-align: center;
+  background: #f8f3d4;
+  border: 3px dashed #261a2d;
+}
 .modal-description {
   color: #624d5b;
   line-height: 1.55;
@@ -456,6 +539,39 @@ textarea {
   color: #d33f6a;
   font-size: 0.82rem;
 }
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 30;
+  padding: 12px 20px;
+  color: #f8f3d4;
+  background: #261a2d;
+  border: 3px solid #261a2d;
+  box-shadow: 5px 5px 0 #00a896;
+  font-weight: 700;
+  font-size: 0.85rem;
+  transform: translateX(-50%);
+  animation: toast-pop 2.2s ease forwards;
+}
+@keyframes toast-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
 @media (max-width: 780px) {
   .site-header {
     flex-wrap: wrap;
@@ -468,6 +584,10 @@ textarea {
   }
   .header-badge {
     display: none;
+  }
+  .watchlist-button {
+    padding: 9px 11px;
+    font-size: 0.85rem;
   }
   .main-content {
     padding-top: 38px;
@@ -519,6 +639,11 @@ textarea {
   }
   .filters select {
     min-width: 0;
+  }
+  .toast {
+    width: min(90vw, 320px);
+    text-align: center;
+    font-size: 0.8rem;
   }
   .movie-modal {
     padding: 25px 18px;

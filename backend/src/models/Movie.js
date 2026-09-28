@@ -17,11 +17,11 @@ const movieSchema = new mongoose.Schema(
       required: true,
       default: [],
     },
-    description: {
+    posterUrl: {
       type: String,
       default: "",
     },
-    posterUrl: {
+    imdbId: {
       type: String,
       default: "",
     },

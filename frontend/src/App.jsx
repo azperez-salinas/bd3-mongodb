@@ -1,7 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+
+// La watchlist vive en el navegador del usuario (localStorage), no en
+// Mongo: el proyecto no tiene cuentas de usuario, así que no hay a qué
+// usuario asociarla del lado del servidor. Cada persona, en su propio
+// navegador, tiene su propia lista.
+const WATCHLIST_KEY = "umdb-watchlist";
+
+const readWatchlist = () => {
+  try {
+    const raw = localStorage.getItem(WATCHLIST_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeWatchlist = (list) => {
+  try {
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list));
+  } catch {
+    // localStorage puede fallar (modo privado, cuota llena, etc.).
+    // Es una feature secundaria: si falla, no debe romper el resto de la app.
+  }
+};
+
 const formatRating = (value) =>
   value === undefined || value === null || Number.isNaN(Number(value))
     ? "0.0"
@@ -106,7 +131,13 @@ function RankedMovie({ movie, rank, showGenre, onClick }) {
   );
 }
 
-function MovieModal({ movie, onClose, onReviewSaved }) {
+function MovieModal({
+  movie,
+  onClose,
+  onReviewSaved,
+  inWatchlist,
+  onToggleWatchlist,
+}) {
   const [userName, setUserName] = useState("");
   const [rating, setRating] = useState("5");
   const [reviewText, setReviewText] = useState("");
@@ -174,6 +205,15 @@ function MovieModal({ movie, onClose, onReviewSaved }) {
               <span>{(movie.category || []).join(" / ") || "Sin genero"}</span>
               <span>{formatRating(movie.avgRating)} / 5</span>
             </div>
+            <button
+              type="button"
+              className={`watchlist-toggle${inWatchlist ? " active" : ""}`}
+              onClick={() => onToggleWatchlist(movie)}
+              aria-pressed={inWatchlist}
+            >
+              <span aria-hidden="true">{inWatchlist ? "♥" : "♡"}</span>
+              {inWatchlist ? "En tu watchlist" : "Agregar a watchlist"}
+            </button>
           </div>
         </div>
         <div className="credits">
@@ -256,6 +296,43 @@ export default function App() {
   const [category, setCategory] = useState("");
   const [order, setOrder] = useState("desc");
   const [loading, setLoading] = useState(true);
+  const [watchlist, setWatchlist] = useState(() => readWatchlist());
+  const [toast, setToast] = useState("");
+  const toastTimeoutRef = useRef(null);
+  const showToast = (text) => {
+    setToast(text);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    // Se pisa el timer anterior en cada toggle para que el popup siempre
+    // dure lo mismo, incluso si el usuario togglea rápido varias veces.
+    toastTimeoutRef.current = setTimeout(() => setToast(""), 2200);
+  };
+  useEffect(() => () => clearTimeout(toastTimeoutRef.current), []);
+  const isInWatchlist = (id) =>
+    watchlist.some((item) => item._id === id);
+  const toggleWatchlist = (movie) => {
+    setWatchlist((current) => {
+      const alreadyIn = current.some((item) => item._id === movie._id);
+      const next = alreadyIn
+        ? current.filter((item) => item._id !== movie._id)
+        : [
+            ...current,
+            {
+              _id: movie._id,
+              title: movie.title,
+              year: movie.year,
+              avgRating: movie.avgRating,
+              reviewCount: movie.reviewCount,
+              category: movie.category,
+              posterUrl: movie.posterUrl,
+            },
+          ];
+      writeWatchlist(next);
+      showToast(
+        alreadyIn ? "Quitada de tu watchlist" : "Agregada a tu watchlist",
+      );
+      return next;
+    });
+  };
   const categories = useMemo(
     () => [...new Set(ranking.flatMap((movie) => movie.category || []))].sort(),
     [ranking],
@@ -325,7 +402,24 @@ export default function App() {
             Ranking
           </button>
         </nav>
-        <span className="header-badge">CINE! CINE! CINE!</span>
+        <div className="header-right">
+          <span className="header-badge">CINE! CINE! CINE!</span>
+          <button
+            type="button"
+            className={`watchlist-button${view === "watchlist" ? " active" : ""}`}
+            onClick={() => setView("watchlist")}
+          >
+            <span aria-hidden="true">♥</span>
+            Mi lista
+            <span
+              className={`watchlist-count${
+                watchlist.length > 0 ? "" : " watchlist-count-hidden"
+              }`}
+            >
+              {watchlist.length}
+            </span>
+          </button>
+        </div>
       </header>
       <main className="main-content">
         {view === "home" && (
@@ -448,13 +542,46 @@ export default function App() {
             </div>
           </section>
         )}
+        {view === "watchlist" && (
+          <section className="listing-page">
+            <div className="section-title">
+              <div>
+                <span className="kicker">Guardadas por vos</span>
+                <h2>Tu watchlist</h2>
+              </div>
+              <span>
+                {watchlist.length}{" "}
+                {watchlist.length === 1 ? "pelicula" : "peliculas"}
+              </span>
+            </div>
+            {watchlist.length ? (
+              <div className="movie-grid">
+                {watchlist.map((movie) => (
+                  <MovieCard key={movie._id} movie={movie} onClick={loadDetail} />
+                ))}
+              </div>
+            ) : (
+              <p className="muted watchlist-empty">
+                Todavia no agregaste peliculas. Abri el detalle de una
+                pelicula y toca el corazon para guardarla aca.
+              </p>
+            )}
+          </section>
+        )}
       </main>
       {selectedMovie && (
         <MovieModal
           movie={selectedMovie}
           onClose={() => setSelectedMovie(null)}
           onReviewSaved={loadDetail}
+          inWatchlist={isInWatchlist(selectedMovie._id)}
+          onToggleWatchlist={toggleWatchlist}
         />
+      )}
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
       )}
     </div>
   );
