@@ -30,4 +30,5 @@ const movieSchema = new mongoose.Schema(
   },
 );
 
+movieSchema.index({ movieId: 1 });
 module.exports = mongoose.model("Review", movieSchema);

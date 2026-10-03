@@ -1,18 +1,25 @@
 const express = require("express");
+const { Types } = require("mongoose");
 const router = express.Router();
 const Review = require("../models/Review");
 const Movie = require("../models/Movie");
 
+
 const recalculateMovieStats = async (movieId) => {
-  //busca todas las reviews de la película
-  const reviews = await Review.find({ movieId });
-  //calcula la cantidad de reiews
-  const reviewCount = reviews.length;
-  //suma todas las calificaciones, reduce recorre el array y acumula el valor de la calificacion en la variable sum, y al final devuelve el total
-  const total = reviews.reduce((sum, review) => sum + review.rating, 0);
-  //calcula el promedio de calificaciones , si no hay reviews, el promedio es 0, y lo redondea a 2 decimales
-  const avgRating =
-    reviewCount > 0 ? Number((total / reviewCount).toFixed(2)) : 0;
+
+  const [stats] = await Review.aggregate([
+    { $match: { movieId: new Types.ObjectId(movieId) } },
+    {
+      $group: {
+        _id: "$movieId",
+        reviewCount: { $sum: 1 },
+        avgRating: { $avg: "$rating" },
+      },
+    },
+  ]);
+
+  const reviewCount = stats?.reviewCount ?? 0;
+  const avgRating = stats ? Number(stats.avgRating.toFixed(2)) : 0;
 
   await Movie.findByIdAndUpdate(movieId, {
     avgRating,
